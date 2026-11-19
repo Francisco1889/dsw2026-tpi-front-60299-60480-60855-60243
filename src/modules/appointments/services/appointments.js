@@ -17,3 +17,9 @@ export async function getPatientAppointments(dni) {
 export async function cancelAppointment(id) {
   await instance.delete('/appointments/' + id);
 }
+
+export async function searchAppointments(params) {
+  const response = await instance.get('/appointments/search', { params });
+
+  return response.data;
+}
