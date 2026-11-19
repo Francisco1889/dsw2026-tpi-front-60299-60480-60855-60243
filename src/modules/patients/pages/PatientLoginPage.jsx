@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../shared/components/Button';
 import useAuth from '../../auth/hook/useAuth';
-import { frontendErrorMessage } from '../../auth/helpers/backendError';
+import { getApiErrorMessage } from '../../shared/api/apiError';
 
 function PatientLoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
@@ -11,31 +11,25 @@ function PatientLoginPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
-  } = useForm({ defaultValues: { username: '', password: '' } });
+    formState: { errors, isSubmitting },
+  } = useForm({ defaultValues: { email: '', dni: '' } });
 
   const navigate = useNavigate();
   const { singinPatient } = useAuth();
 
   const onValid = async (formData) => {
+    setErrorMessage('');
+
     try {
-      const { error } = await singinPatient(
-        formData.username,
-        formData.password
-      );
-
-      if (error) {
-        setErrorMessage(error.frontendErrorMessage || 'Credenciales inválidas');
-
-        return;
-      }
-
-      navigate('/');
+      await singinPatient(formData.email, formData.dni);
+      navigate('/', { replace: true });
     } catch (error) {
-      if (error?.response?.data?.code) {
-        setErrorMessage(frontendErrorMessage[error?.response?.data?.code]);
+      if (error.response?.status === 401) {
+        setErrorMessage('El correo y el DNI no coinciden.');
       } else {
-        setErrorMessage('Error al conectar con el servicio de pacientes');
+        setErrorMessage(
+          getApiErrorMessage(error, 'Revisá los datos ingresados.')
+        );
       }
     }
   };
@@ -101,18 +95,18 @@ function PatientLoginPage() {
                 type="email"
                 placeholder="paciente@medportal.com"
                 className={`w-full border rounded-lg pl-10 pr-3.5 py-2.5 text-sm bg-white text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent ${
-                  errors.username
+                  errors.email
                     ? 'border-red-400 bg-red-50/20'
                     : 'border-med-border'
                 }`}
-                {...register('username', {
+                {...register('email', {
                   required: 'El correo electrónico es obligatorio',
                 })}
               />
             </div>
-            {errors.username && (
+            {errors.email && (
               <p className="text-xs text-red-500 font-medium">
-                {errors.username.message}
+                {errors.email.message}
               </p>
             )}
           </div>
@@ -140,14 +134,19 @@ function PatientLoginPage() {
               </span>
               <input
                 type={showPassword ? 'text' : 'password'}
+                inputMode="numeric"
                 placeholder="••••••••"
                 className={`w-full border rounded-lg pl-10 pr-10 py-2.5 text-sm bg-white text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent ${
-                  errors.password
+                  errors.dni
                     ? 'border-red-400 bg-red-50/20'
                     : 'border-med-border'
                 }`}
-                {...register('password', {
+                {...register('dni', {
                   required: 'El DNI es obligatorio',
+                  pattern: {
+                    value: /^\d{7,8}$/,
+                    message: 'El DNI debe tener 7 u 8 números, sin puntos',
+                  },
                 })}
               />
               <button
@@ -194,23 +193,20 @@ function PatientLoginPage() {
                 )}
               </button>
             </div>
-            {errors.password && (
+            {errors.dni && (
               <p className="text-xs text-red-500 font-medium">
-                {errors.password.message}
+                {errors.dni.message}
               </p>
             )}
           </div>
 
-          <Button type="submit" className="w-full mt-1">
-            Ingresar Paciente
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? 'Ingresando...' : 'Ingresar Paciente'}
           </Button>
-
-          <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-lg p-2.5 text-center text-xs text-med-primary-900">
-            <span className="font-semibold">Credenciales de prueba:</span>
-            <br />
-            Email: <code>paciente@medportal.com</code> | Clave:{' '}
-            <code>paciente123</code>
-          </div>
 
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 text-center">

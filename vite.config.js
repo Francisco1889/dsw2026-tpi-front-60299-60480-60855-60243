@@ -5,10 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const target = env.VITE_BACKEND_URL || 'http://localhost:5001/';
+  const target = env.VITE_BACKEND_URL || 'http://localhost:5278';
 
   return defineConfig({
     server: {
+      port: 5173,
+      strictPort: true,
       proxy: {
         '/api': {
           target,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../hook/useAuth';
-import { frontendErrorMessage } from '../helpers/backendError';
+import { getApiErrorMessage } from '../../shared/api/apiError';
 
 function AdminLoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
@@ -11,30 +11,25 @@ function AdminLoginPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
-  } = useForm({ defaultValues: { username: '', password: '' } });
+    formState: { errors, isSubmitting },
+  } = useForm({ defaultValues: { email: '', password: '' } });
 
   const navigate = useNavigate();
   const { singinAdmin } = useAuth();
 
   const onValid = async (formData) => {
+    setErrorMessage('');
+
     try {
-      const { error } = await singinAdmin(formData.username, formData.password);
-
-      if (error) {
-        setErrorMessage(
-          error.frontendErrorMessage || 'Credenciales administrativas inválidas'
-        );
-
-        return;
-      }
-
-      navigate('/admin/home');
+      await singinAdmin(formData.email, formData.password);
+      navigate('/admin/home', { replace: true });
     } catch (error) {
-      if (error?.response?.data?.code) {
-        setErrorMessage(frontendErrorMessage[error?.response?.data?.code]);
+      if (error.response?.status === 401) {
+        setErrorMessage('Correo o contraseña incorrectos.');
       } else {
-        setErrorMessage('Error al conectar con el servicio administrativo');
+        setErrorMessage(
+          getApiErrorMessage(error, 'Revisá los datos ingresados.')
+        );
       }
     }
   };
@@ -104,18 +99,18 @@ function AdminLoginPage() {
                   type="email"
                   placeholder="admin@medportal.com"
                   className={`w-full border rounded-lg pl-10 pr-3.5 py-2.5 text-sm bg-white text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent ${
-                    errors.username
+                    errors.email
                       ? 'border-red-400 bg-red-50/20'
                       : 'border-med-border'
                   }`}
-                  {...register('username', {
+                  {...register('email', {
                     required: 'El correo electrónico es obligatorio',
                   })}
                 />
               </div>
-              {errors.username && (
+              {errors.email && (
                 <p className="text-xs text-red-500 font-medium">
-                  {errors.username.message}
+                  {errors.email.message}
                 </p>
               )}
             </div>
@@ -123,7 +118,7 @@ function AdminLoginPage() {
             {/* Contraseña */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-med-text-main">
-                DNI
+                Contraseña
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-med-text-muted">
@@ -150,14 +145,22 @@ function AdminLoginPage() {
                       : 'border-med-border'
                   }`}
                   {...register('password', {
-                    required: 'El DNI es obligatorio',
+                    required: 'La contraseña es obligatoria',
+                    minLength: {
+                      value: 8,
+                      message: 'La contraseña debe tener al menos 8 caracteres',
+                    },
                   })}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ocultar DNI' : 'Mostrar DNI'}
-                  title={showPassword ? 'Ocultar DNI' : 'Mostrar DNI'}
+                  aria-label={
+                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  }
+                  title={
+                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  }
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-med-text-muted hover:text-med-text-main"
                 >
                   {showPassword ? (
@@ -207,18 +210,12 @@ function AdminLoginPage() {
             {/* Botón de Submit */}
             <button
               type="submit"
-              className="mt-2 w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition"
+              disabled={isSubmitting}
+              className="mt-2 w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>Iniciar Sesión</span>
+              <span>{isSubmitting ? 'Ingresando...' : 'Iniciar Sesión'}</span>
               <span className="text-sm">→</span>
             </button>
-
-            <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-lg p-2.5 text-center text-xs text-med-primary-900">
-              <span className="font-semibold">Credenciales de prueba:</span>
-              <br />
-              Email: <code>admin@medportal.com</code> | Clave:{' '}
-              <code>admin123</code>
-            </div>
 
             {/* Error Message */}
             {errorMessage && (
