@@ -4,6 +4,8 @@ import Button from '../../shared/components/Button';
 import { getApiErrorMessage } from '../../shared/api/apiError';
 import { getSpecialties } from '../../specialties/services/specialties';
 import { getDoctors, getDoctorSlots } from '../../doctors/services/doctors';
+import useAuth from '../../auth/hook/useAuth';
+import { createAppointment } from '../../appointments/services/appointments';
 
 const DAY_NAMES = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
 
@@ -27,6 +29,7 @@ function getDays(offset) {
 
   for (let i = 0; i < 7; i++) {
     const date = new Date();
+
     date.setDate(date.getDate() + offset + i);
 
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -54,6 +57,7 @@ function formatDate(text) {
 }
 
 function PatientHome() {
+  const { dni } = useAuth();
   const [specialties, setSpecialties] = useState([]);
   const [specialtyId, setSpecialtyId] = useState('');
   const [doctors, setDoctors] = useState([]);
@@ -64,11 +68,17 @@ function PatientHome() {
   const [selectedDay, setSelectedDay] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [reason, setReason] = useState('');
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [confirmedAppointment, setConfirmedAppointment] = useState(null);
+  const [slotsRefresh, setSlotsRefresh] = useState(0);
 
   useEffect(() => {
     async function loadSpecialties() {
       try {
         const result = await getSpecialties({ pageIndex: 0, pageSize: 100 });
+
         setSpecialties(result.data);
       } catch (err) {
         setError(
@@ -88,6 +98,7 @@ function PatientHome() {
           pageIndex: 0,
           pageSize: 100,
         });
+
         setDoctors(result.data);
       } catch (err) {
         setError(getApiErrorMessage(err, 'No se pudieron cargar los médicos.'));
@@ -109,6 +120,7 @@ function PatientHome() {
           days[0].text,
           days[6].text
         );
+
         setSlots(result);
       } catch (err) {
         setError(
@@ -120,7 +132,7 @@ function PatientHome() {
     }
 
     if (doctorId) loadSlots();
-  }, [doctorId, weekStart]);
+  }, [doctorId, weekStart, slotsRefresh]);
 
   const days = getDays(weekStart);
   const doctor = doctors.find((item) => item.id === doctorId);
@@ -129,6 +141,59 @@ function PatientHome() {
   const summary = selectedSlot
     ? formatDate(selectedSlot.date) + ', ' + selectedSlot.startTime + ' HS'
     : 'Elegí un horario';
+  const trimmedReason = reason.trim();
+  const canBook =
+    doctorId &&
+    selectedSlot?.status === 'AVAILABLE' &&
+    dni &&
+    trimmedReason.length >= 5 &&
+    trimmedReason.length <= 300 &&
+    !loading &&
+    !isBooking;
+
+  async function confirmAppointment(event) {
+    event.preventDefault();
+
+    if (!canBook) return;
+
+    setIsBooking(true);
+    setBookingError('');
+    setConfirmedAppointment(null);
+
+    try {
+      const appointment = await createAppointment({
+        doctorId,
+        availabilitySlotId: selectedSlot.id,
+        patient: { dni: Number(dni) },
+        reason: trimmedReason,
+      });
+
+      setConfirmedAppointment(appointment);
+      setSlots((currentSlots) =>
+        currentSlots.map((slot) =>
+          slot.id === selectedSlot.id ? { ...slot, status: 'BOOKED' } : slot
+        )
+      );
+      setSelectedSlot(null);
+      setReason('');
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setBookingError(
+          'Ese horario ya no está disponible. Elegí otro horario.'
+        );
+        setSelectedSlot(null);
+        setSlots([]);
+        setLoading(true);
+        setSlotsRefresh((current) => current + 1);
+      } else {
+        setBookingError(
+          getApiErrorMessage(err, 'No se pudo confirmar el turno.')
+        );
+      }
+    } finally {
+      setIsBooking(false);
+    }
+  }
 
   function changeSpecialty(id) {
     setSpecialtyId(id);
@@ -196,6 +261,7 @@ function PatientHome() {
             <div className="relative">
               <select
                 value={specialtyId}
+                disabled={isBooking}
                 onChange={(e) => changeSpecialty(e.target.value)}
                 className="w-full appearance-none px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 pr-10 cursor-pointer"
               >
@@ -220,7 +286,7 @@ function PatientHome() {
             <div className="relative">
               <select
                 value={doctorId}
-                disabled={!specialtyId}
+                disabled={!specialtyId || isBooking}
                 onChange={(e) => changeDoctor(e.target.value)}
                 className="w-full appearance-none px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 pr-10 cursor-pointer"
               >
@@ -269,7 +335,7 @@ function PatientHome() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              disabled={weekStart === 0}
+              disabled={weekStart === 0 || isBooking}
               onClick={() => changeWeek(weekStart - 7)}
               className="p-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition disabled:opacity-40"
             >
@@ -280,6 +346,7 @@ function PatientHome() {
             </span>
             <button
               type="button"
+              disabled={isBooking}
               onClick={() => changeWeek(weekStart + 7)}
               className="p-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition"
             >
@@ -341,7 +408,7 @@ function PatientHome() {
                           <button
                             key={slot.id}
                             type="button"
-                            disabled={slot.status === 'BOOKED'}
+                            disabled={slot.status !== 'AVAILABLE' || isBooking}
                             onClick={() => setSelectedSlot(slot)}
                             className={slotClass(slot)}
                           >
@@ -366,6 +433,7 @@ function PatientHome() {
                   <button
                     key={day.text}
                     type="button"
+                    disabled={isBooking}
                     onClick={() => setSelectedDay(day.text)}
                     className={
                       mobileDay === day.text
@@ -397,7 +465,7 @@ function PatientHome() {
                       <button
                         key={slot.id}
                         type="button"
-                        disabled={slot.status === 'BOOKED'}
+                        disabled={slot.status !== 'AVAILABLE' || isBooking}
                         onClick={() => setSelectedSlot(slot)}
                         className={slotClass(slot)}
                       >
@@ -418,9 +486,10 @@ function PatientHome() {
         )}
       </Card>
 
-      {/* 4. Banner / Resumen de Selección y Confirmación */}
-      <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Detalle del Turno */}
+      <form
+        onSubmit={confirmAppointment}
+        className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col gap-4"
+      >
         <div className="border-l-4 border-med-primary-900 pl-3.5">
           <span className="text-[10px] font-bold uppercase tracking-wider text-med-text-sub">
             Resumen de Selección
@@ -429,31 +498,53 @@ function PatientHome() {
             <span>📅</span>
             <span>{summary}</span>
           </p>
+          {selectedSlot && doctor && (
+            <p className="text-sm text-med-text-sub">{doctor.name}</p>
+          )}
           <p className="text-xs text-med-text-sub mt-0.5">Duración: 30 min</p>
         </div>
 
-        {/* Botón de Confirmación */}
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Motivo de consulta
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            required
+            minLength={5}
+            maxLength={300}
+            rows={3}
+            disabled={isBooking}
+            className="rounded-lg border border-med-border bg-white p-2 font-normal"
+          />
+          <span className="text-xs font-normal text-med-text-sub">
+            Entre 5 y 300 caracteres.
+          </span>
+        </label>
+
+        {bookingError && (
+          <p role="alert" className="text-sm text-red-700">
+            {bookingError}
+          </p>
+        )}
+
         <Button
-          type="button"
-          disabled
-          className="flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-3 px-6 rounded-xl shadow-md text-sm shrink-0 disabled:opacity-50"
+          type="submit"
+          disabled={!canBook}
+          className="w-full sm:w-auto sm:self-end disabled:opacity-50"
         >
-          <span>Confirmar Turno</span>
-          <svg
-            className="w-5 h-5 text-emerald-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          {isBooking ? 'Confirmando…' : 'Confirmar turno'}
         </Button>
-      </div>
+        {confirmedAppointment && (
+          <div role="status" className="text-sm text-green-800">
+            <p className="font-bold">Turno confirmado.</p>
+            <p>
+              {confirmedAppointment.doctor} ·{' '}
+              {formatDate(confirmedAppointment.availableTime.date)} a las{' '}
+              {confirmedAppointment.availableTime.startTime}
+            </p>
+          </div>
+        )}
+      </form>
     </div>
   );
 }
