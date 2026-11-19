@@ -21,3 +21,9 @@ export async function getDoctorAvailability(id) {
 
   return response.data;
 }
+
+export async function updateAvailability(availability) {
+  const response = await instance.put('/availabilities', availability);
+
+  return response.data;
+}
