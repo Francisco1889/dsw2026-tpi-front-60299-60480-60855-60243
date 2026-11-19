@@ -22,6 +22,14 @@ export async function getDoctorAvailability(id) {
   return response.data;
 }
 
+export async function getDoctorSlots(id, from, to) {
+  const response = await instance.get('/doctors/' + id + '/slots', {
+    params: { from, to },
+  });
+
+  return response.data;
+}
+
 export async function updateAvailability(availability) {
   const response = await instance.put('/availabilities', availability);
 
