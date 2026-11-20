@@ -24,6 +24,8 @@ function DoctorAvailabilityPage() {
   const doctorId = params.get('doctorId');
   const [doctors, setDoctors] = useState([]);
   const [ranges, setRanges] = useState([]);
+  const [loadedDoctorId, setLoadedDoctorId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -31,6 +33,7 @@ function DoctorAvailabilityPage() {
     async function loadDoctors() {
       try {
         const result = await getDoctors({ pageIndex: 0, pageSize: 100 });
+
         setDoctors(result.data);
       } catch (err) {
         setError(getApiErrorMessage(err, 'No se pudieron cargar los médicos.'));
@@ -41,22 +44,38 @@ function DoctorAvailabilityPage() {
   }, []);
 
   useEffect(() => {
+    let current = true;
+
     async function loadAgenda() {
       setRanges([]);
+      setLoadedDoctorId(null);
       setError('');
       setMessage('');
+
       try {
         const result = await getDoctorAvailability(doctorId);
-        setRanges(result);
+
+        if (current) {
+          setRanges(result);
+          setLoadedDoctorId(doctorId);
+        }
       } catch (err) {
-        setError(getApiErrorMessage(err, 'No se pudo cargar la agenda.'));
+        if (current) {
+          setError(getApiErrorMessage(err, 'No se pudo cargar la agenda.'));
+        }
       }
     }
 
     if (doctorId) loadAgenda();
+
+    return () => {
+      current = false;
+    };
   }, [doctorId]);
 
   const doctor = doctors.find((item) => item.id === doctorId);
+  const agendaLoaded = Boolean(doctorId) && loadedDoctorId === doctorId;
+  const canSave = agendaLoaded && !isSaving;
 
   function toggleDay(day, active) {
     if (active) {
@@ -68,26 +87,34 @@ function DoctorAvailabilityPage() {
 
   function changeRange(index, field, value) {
     const copy = [...ranges];
+
     copy[index] = { ...copy[index], [field]: value };
     setRanges(copy);
   }
 
   async function save() {
+    if (!canSave) return;
+
     setError('');
     setMessage('');
 
     for (const range of ranges) {
       if (range.startTime >= range.endTime) {
         setError(range.day + ': la entrada debe ser antes que la salida.');
+
         return;
       }
     }
+
+    setIsSaving(true);
 
     try {
       await updateAvailability({ doctorId, days: ranges });
       setMessage('Agenda guardada.');
     } catch (err) {
       setError(getApiErrorMessage(err, 'No se pudo guardar la agenda.'));
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -99,9 +126,7 @@ function DoctorAvailabilityPage() {
         <Link to="/admin/doctors">Doctores</Link> &gt; Disponibilidad Horaria
       </p>
       <div>
-        <h1 className="text-2xl font-bold">
-          Gestionar Disponibilidad Horaria
-        </h1>
+        <h1 className="text-2xl font-bold">Gestionar Disponibilidad Horaria</h1>
         <p className="text-med-text-sub">
           Defina los días y rangos horarios de atención para el profesional
           seleccionado.
@@ -119,6 +144,7 @@ function DoctorAvailabilityPage() {
               <select
                 className={fieldClass}
                 value={doctorId ?? ''}
+                disabled={isSaving}
                 onChange={(e) => setParams({ doctorId: e.target.value })}
               >
                 <option value="">Elegí un médico</option>
@@ -154,6 +180,10 @@ function DoctorAvailabilityPage() {
               </span>
             </div>
 
+            {!agendaLoaded && !error && (
+              <p className="mb-4 text-sm text-med-text-sub">Cargando agenda…</p>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-med-primary-50 text-sm">
@@ -171,17 +201,14 @@ function DoctorAvailabilityPage() {
 
                     return (
                       <tr key={day} className="border-b">
-                        <td className="p-3 capitalize">
-                          {day.toLowerCase()}
-                        </td>
+                        <td className="p-3 capitalize">{day.toLowerCase()}</td>
                         <td className="p-3">
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               checked={index !== -1}
-                              onChange={(e) =>
-                                toggleDay(day, e.target.checked)
-                              }
+                              disabled={!canSave}
+                              onChange={(e) => toggleDay(day, e.target.checked)}
                             />
                             {range ? 'Activo' : 'Inactivo'}
                           </label>
@@ -191,7 +218,7 @@ function DoctorAvailabilityPage() {
                             type="time"
                             step="1800"
                             className={fieldClass}
-                            disabled={!range}
+                            disabled={!range || !canSave}
                             value={range ? range.startTime : ''}
                             onChange={(e) =>
                               changeRange(index, 'startTime', e.target.value)
@@ -203,7 +230,7 @@ function DoctorAvailabilityPage() {
                             type="time"
                             step="1800"
                             className={fieldClass}
-                            disabled={!range}
+                            disabled={!range || !canSave}
                             value={range ? range.endTime : ''}
                             onChange={(e) =>
                               changeRange(index, 'endTime', e.target.value)
@@ -224,7 +251,13 @@ function DoctorAvailabilityPage() {
               >
                 Cancelar
               </Link>
-              <Button onClick={save}>Guardar Disponibilidad</Button>
+              <Button
+                onClick={save}
+                disabled={!canSave}
+                className="disabled:opacity-50"
+              >
+                {isSaving ? 'Guardando…' : 'Guardar Disponibilidad'}
+              </Button>
             </div>
           </Card>
         )}

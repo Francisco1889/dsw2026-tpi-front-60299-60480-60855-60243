@@ -91,6 +91,8 @@ function PatientHome() {
   }, []);
 
   useEffect(() => {
+    let current = true;
+
     async function loadDoctors() {
       try {
         const result = await getDoctors({
@@ -99,16 +101,26 @@ function PatientHome() {
           pageSize: 100,
         });
 
-        setDoctors(result.data);
+        if (current) setDoctors(result.data);
       } catch (err) {
-        setError(getApiErrorMessage(err, 'No se pudieron cargar los médicos.'));
+        if (current) {
+          setError(
+            getApiErrorMessage(err, 'No se pudieron cargar los médicos.')
+          );
+        }
       }
     }
 
     if (specialtyId) loadDoctors();
+
+    return () => {
+      current = false;
+    };
   }, [specialtyId]);
 
   useEffect(() => {
+    let current = true;
+
     async function loadSlots() {
       const days = getDays(weekStart);
 
@@ -121,17 +133,27 @@ function PatientHome() {
           days[6].text
         );
 
-        setSlots(result);
+        if (current) setSlots(result);
       } catch (err) {
-        setError(
-          getApiErrorMessage(err, 'No se pudieron cargar los horarios.')
-        );
+        if (current) {
+          setError(
+            getApiErrorMessage(err, 'No se pudieron cargar los horarios.')
+          );
+        }
       } finally {
-        setLoading(false);
+        if (current) setLoading(false);
       }
     }
 
-    if (doctorId) loadSlots();
+    if (doctorId) {
+      loadSlots();
+    } else {
+      setLoading(false);
+    }
+
+    return () => {
+      current = false;
+    };
   }, [doctorId, weekStart, slotsRefresh]);
 
   const days = getDays(weekStart);
