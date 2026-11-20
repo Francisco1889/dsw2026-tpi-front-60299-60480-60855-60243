@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../shared/components/Button';
 import Card from '../../shared/components/Card';
+import Input from '../../shared/components/Input';
 import { getApiErrorMessage } from '../../shared/api/apiError';
 import { createDoctor } from '../services/doctors';
 import { getSpecialties } from '../../specialties/services/specialties';
@@ -57,7 +58,8 @@ function NewDoctorPage() {
     formState: { errors, isSubmitting },
   } = useForm();
   const listPath = '/admin/doctors';
-  const fieldClass = 'w-full rounded-lg border border-med-border px-3 py-2';
+  const fieldClass =
+    'w-full rounded-lg border border-med-border bg-white px-3.5 py-2.5 text-sm font-normal text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent';
 
   async function save(values) {
     try {
@@ -88,32 +90,25 @@ function NewDoctorPage() {
       </h1>
       <Card>
         <form onSubmit={handleSubmit(save)} noValidate>
-          <fieldset disabled={isSubmitting} className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1">
-              Nombre completo del médico
-              <input
-                className={fieldClass}
-                aria-invalid={!!errors.name}
-                {...register('name', {
-                  setValueAs: (value) => value.trim(),
-                  required: 'Ingresá un nombre.',
-                  minLength: {
-                    value: 3,
-                    message: 'El nombre debe tener al menos 3 caracteres.',
-                  },
-                  maxLength: {
-                    value: 100,
-                    message: 'El nombre admite hasta 100 caracteres.',
-                  },
-                })}
-              />
-            </label>
-            {errors.name && (
-              <p role="alert" className="text-sm text-red-700">
-                {errors.name.message}
-              </p>
-            )}
-            <label className="flex flex-col gap-1">
+          <fieldset className="flex flex-col gap-4">
+            <Input
+              id="doctor-name"
+              label="Nombre completo del médico"
+              error={errors.name?.message}
+              {...register('name', {
+                setValueAs: (value) => value.trim(),
+                required: 'Ingresá un nombre.',
+                minLength: {
+                  value: 3,
+                  message: 'El nombre debe tener al menos 3 caracteres.',
+                },
+                maxLength: {
+                  value: 100,
+                  message: 'El nombre admite hasta 100 caracteres.',
+                },
+              })}
+            />
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-med-text-main">
               Especialidad
               <select
                 aria-label="Especialidad"
@@ -155,29 +150,23 @@ function NewDoctorPage() {
               </p>
             )}
             {errors.specialtyId && (
-              <p role="alert" className="text-red-700">
+              <p role="alert" className="text-xs font-medium text-red-700">
                 {errors.specialtyId.message}
               </p>
             )}
-            <label className="flex flex-col gap-1">
-              Matrícula
-              <input
-                className={fieldClass}
-                {...register('licenseNumber', {
-                  setValueAs: (value) => value.trim(),
-                  required: 'Ingresá la matrícula.',
-                  maxLength: {
-                    value: 50,
-                    message: 'La matrícula admite hasta 50 caracteres.',
-                  },
-                })}
-              />
-            </label>
-            {errors.licenseNumber && (
-              <p role="alert" className="text-red-700">
-                {errors.licenseNumber.message}
-              </p>
-            )}
+            <Input
+              id="doctor-license"
+              label="Matrícula"
+              error={errors.licenseNumber?.message}
+              {...register('licenseNumber', {
+                setValueAs: (value) => value.trim(),
+                required: 'Ingresá la matrícula.',
+                maxLength: {
+                  value: 50,
+                  message: 'La matrícula admite hasta 50 caracteres.',
+                },
+              })}
+            />
             {errors.root && (
               <p role="alert" className="text-sm text-red-700">
                 {errors.root.message}
@@ -187,7 +176,10 @@ function NewDoctorPage() {
               <Button variant="outline" onClick={() => navigate(listPath)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!specialties?.length}>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !specialties?.length}
+              >
                 {isSubmitting ? 'Guardando…' : 'Guardar médico'}
               </Button>
             </div>
