@@ -3,9 +3,10 @@ import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import { getApiErrorMessage } from '../../shared/api/apiError';
 import { getSpecialties } from '../../specialties/services/specialties';
-import { getDoctors, getDoctorSlots } from '../../doctors/services/doctors';
+import { getDoctors } from '../../doctors/services/doctors';
 import useAuth from '../../auth/hook/useAuth';
 import { createAppointment } from '../../appointments/services/appointments';
+import useDoctorSlots from '../hooks/useDoctorSlots';
 
 const DAY_NAMES = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
 
@@ -63,16 +64,22 @@ function PatientHome() {
   const [doctors, setDoctors] = useState([]);
   const [doctorId, setDoctorId] = useState('');
   const [weekStart, setWeekStart] = useState(0);
-  const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedDay, setSelectedDay] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reason, setReason] = useState('');
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [confirmedAppointment, setConfirmedAppointment] = useState(null);
-  const [slotsRefresh, setSlotsRefresh] = useState(0);
+
+  const days = getDays(weekStart);
+  const {
+    slots,
+    loading,
+    error: slotsError,
+    markBooked,
+    reloadSlots,
+  } = useDoctorSlots(doctorId, days[0].text, days[6].text);
 
   useEffect(() => {
     async function loadSpecialties() {
@@ -118,45 +125,6 @@ function PatientHome() {
     };
   }, [specialtyId]);
 
-  useEffect(() => {
-    let current = true;
-
-    async function loadSlots() {
-      const days = getDays(weekStart);
-
-      setLoading(true);
-      setError('');
-      try {
-        const result = await getDoctorSlots(
-          doctorId,
-          days[0].text,
-          days[6].text
-        );
-
-        if (current) setSlots(result);
-      } catch (err) {
-        if (current) {
-          setError(
-            getApiErrorMessage(err, 'No se pudieron cargar los horarios.')
-          );
-        }
-      } finally {
-        if (current) setLoading(false);
-      }
-    }
-
-    if (doctorId) {
-      loadSlots();
-    } else {
-      setLoading(false);
-    }
-
-    return () => {
-      current = false;
-    };
-  }, [doctorId, weekStart, slotsRefresh]);
-
-  const days = getDays(weekStart);
   const doctor = doctors.find((item) => item.id === doctorId);
   const mobileDay = selectedDay || days[0].text;
   const mobileSlots = slots.filter((slot) => slot.date === mobileDay);
@@ -191,11 +159,7 @@ function PatientHome() {
       });
 
       setConfirmedAppointment(appointment);
-      setSlots((currentSlots) =>
-        currentSlots.map((slot) =>
-          slot.id === selectedSlot.id ? { ...slot, status: 'BOOKED' } : slot
-        )
-      );
+      markBooked(selectedSlot.id);
       setSelectedSlot(null);
       setReason('');
     } catch (err) {
@@ -204,9 +168,7 @@ function PatientHome() {
           'Ese horario ya no está disponible. Elegí otro horario.'
         );
         setSelectedSlot(null);
-        setSlots([]);
-        setLoading(true);
-        setSlotsRefresh((current) => current + 1);
+        reloadSlots();
       } else {
         setBookingError(
           getApiErrorMessage(err, 'No se pudo confirmar el turno.')
@@ -221,21 +183,18 @@ function PatientHome() {
     setSpecialtyId(id);
     setDoctors([]);
     setDoctorId('');
-    setSlots([]);
     setSelectedSlot(null);
   }
 
   function changeDoctor(id) {
     setDoctorId(id);
     setWeekStart(0);
-    setSlots([]);
     setSelectedSlot(null);
     setSelectedDay('');
   }
 
   function changeWeek(offset) {
     setWeekStart(offset);
-    setSlots([]);
     setSelectedSlot(null);
     setSelectedDay('');
   }
@@ -403,7 +362,13 @@ function PatientHome() {
           <p className="pt-5 text-sm text-med-text-sub">Cargando horarios…</p>
         )}
 
-        {doctorId && !loading && (
+        {doctorId && !loading && slotsError && (
+          <p role="alert" className="pt-5 text-sm text-red-700">
+            {slotsError}
+          </p>
+        )}
+
+        {doctorId && !loading && !slotsError && (
           <>
             {/* --- A) VISTA DESKTOP: Grid semanal de 7 columnas (visible en sm+) --- */}
             <div className="hidden sm:grid sm:grid-cols-7 gap-3 pt-5">
