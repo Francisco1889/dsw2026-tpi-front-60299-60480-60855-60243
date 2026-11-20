@@ -43,7 +43,7 @@ const routes = [
   {
     path: '/',
     element: (
-      <ProtectedRoute role={ROLES.patient} redirectTo="/login">
+      <ProtectedRoute allowedRoles={[ROLES.patient]} redirectTo="/login">
         <PatientLayout />
       </ProtectedRoute>
     ),
@@ -63,7 +63,7 @@ const routes = [
   {
     path: '/admin',
     element: (
-      <ProtectedRoute role={ROLES.admin} redirectTo="/admin/login">
+      <ProtectedRoute allowedRoles={[ROLES.admin]} redirectTo="/admin/login">
         <DashboardLayout />
       </ProtectedRoute>
     ),
