@@ -23,3 +23,9 @@ export async function searchAppointments(params) {
 
   return response.data;
 }
+
+export async function getAppointmentsByDate(date) {
+  const response = await instance.get('/appointments', { params: { date } });
+
+  return response.data;
+}

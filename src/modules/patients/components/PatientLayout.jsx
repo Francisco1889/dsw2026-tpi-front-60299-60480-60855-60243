@@ -5,7 +5,8 @@ import useAuth from '../../auth/hook/useAuth';
 function PatientLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { singout } = useAuth();
+  const { dni, singout } = useAuth();
+  const patientLabel = dni ? 'DNI: ' + dni : 'Paciente';
 
   const handleLogout = () => {
     singout();
@@ -84,11 +85,14 @@ function PatientLayout() {
 
             {/* Avatar Paciente */}
             <div className="flex items-center gap-2.5 pl-2 sm:border-l sm:border-med-border">
-              <div className="w-8 h-8 rounded-full bg-med-primary-100 text-med-primary-900 font-bold text-xs flex items-center justify-center border border-med-primary-200">
-                JD
+              <div
+                aria-hidden="true"
+                className="w-8 h-8 rounded-full bg-med-primary-100 text-med-primary-900 font-bold text-xs flex items-center justify-center border border-med-primary-200"
+              >
+                P
               </div>
               <span className="hidden sm:inline-block text-xs font-semibold text-med-text-main">
-                Johnathan Doe
+                {patientLabel}
               </span>
             </div>
 
@@ -154,7 +158,7 @@ function PatientLayout() {
             </NavLink>
             <div className="pt-2 border-t border-med-border-subtle flex items-center justify-between">
               <span className="text-xs font-medium text-med-text-sub">
-                Paciente: Johnathan Doe
+                {patientLabel}
               </span>
               <button
                 onClick={handleLogout}

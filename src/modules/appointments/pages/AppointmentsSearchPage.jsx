@@ -275,6 +275,7 @@ function AppointmentsSearchPage() {
               <tbody className="divide-y divide-med-border-subtle">
                 {result.data.map((item) => {
                   const status = STATUS[item.appointmentsStatus];
+                  const patientName = item.patient.fullName?.trim();
 
                   return (
                     <tr key={item.appointmentsId}>
@@ -296,10 +297,18 @@ function AppointmentsSearchPage() {
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-med-text-main">
-                          {item.patient.fullName || 'Sin nombre registrado'}
-                        </p>
-                        <p className="text-xs text-med-text-muted mt-0.5">
+                        {patientName && (
+                          <p className="font-semibold text-med-text-main">
+                            {patientName}
+                          </p>
+                        )}
+                        <p
+                          className={
+                            patientName
+                              ? 'text-xs text-med-text-muted mt-0.5'
+                              : 'font-semibold text-med-text-main'
+                          }
+                        >
                           DNI: {item.patient.dni}
                         </p>
                       </td>
