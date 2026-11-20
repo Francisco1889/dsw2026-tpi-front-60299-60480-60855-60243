@@ -1,24 +1,33 @@
-# Unidad 5
+# TPI de turnos médicos · Frontend
 
-# Configuración
+Aplicación de React para reservar y cancelar turnos como paciente, y gestionar médicos, especialidades, agendas y citas como administrador. Usa Vite, Tailwind CSS y Axios para conectarse a la API de ASP.NET Core.
 
-Se agrego un archivo .env.development
-En este archivo tienes una variable de entorno llamada VITE_BACKEND_URL, debes cambiar su valor de acuerdo a la URL de tu backend.
+## Ejecutar en desarrollo
 
-## Pasos de instalación
+1. Iniciá la API siguiendo el README del repositorio del backend. Con el perfil HTTP queda disponible en `http://localhost:5278`.
+2. Abrí una terminal en la raíz del frontend, donde está `package.json`, y ejecutá:
 
-### Ejecutar:
+   ```sh
+   npm install
+   npm run dev
+   ```
 
-`npm install`
+3. Abrí [el ingreso de pacientes](http://localhost:5173/login) o [el ingreso de administradores](http://localhost:5173/admin/login).
 
-### Ejecutar lint
+## Configurar la conexión
 
-`npm run lint`
+El archivo `.env.development` ya apunta al backend local. Vite reenvía las peticiones que empiezan con `/api` al servidor indicado en `VITE_BACKEND_URL`.
 
-### Iniciar aplicación
+Si la API usa otro puerto en tu equipo, copiá `.env.example` como `.env.development.local` en la raíz del frontend. Cambiá el valor por la dirección de tu API, solo con protocolo, host y puerto. Reiniciá `npm run dev` para aplicar el cambio.
 
-`npm run dev`
+Para comprobar la conexión, ingresá como paciente y abrí **Reservar Turno**. En las herramientas de desarrollo del navegador, pestaña **Network**, verificá que la consulta a `/api/specialties` responda con estado `200`.
 
-### Crear archivos para producción
+## Verificar el proyecto
 
-`npm run build`
+```sh
+npm run lint
+npm run format:check
+npm run build
+```
+
+Los comandos revisan el código con ESLint, comprueban el formato con Prettier y generan la versión de producción en `dist/`.
